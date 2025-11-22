@@ -1,0 +1,8 @@
+{
+  "name": "Shammari Elects - Salah al-Din",
+  "description": "A professional election management platform for the Shammari tribe in Salah al-Din, featuring voter registration, real-time analytics, and AI-driven campaign insights.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
