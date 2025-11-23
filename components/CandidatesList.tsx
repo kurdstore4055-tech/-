@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Candidate } from '../types';
-import { Vote, CheckCircle, Award, Trophy, TrendingUp, AlertCircle, Search, Lock } from 'lucide-react';
+import { Vote, CheckCircle, Award, Trophy, TrendingUp, AlertCircle, Search, Lock, CloudUpload } from 'lucide-react';
+import { sendVoteToGoogleSheets } from '../services/geminiService';
 
 // Expanded list of 30 Candidates - Strictly Shammari Tribe
 const INITIAL_CANDIDATES: Candidate[] = [
@@ -39,9 +40,10 @@ const INITIAL_CANDIDATES: Candidate[] = [
 
 interface CandidatesListProps {
   canVote: boolean;
+  isAdmin: boolean;
 }
 
-const CandidatesList: React.FC<CandidatesListProps> = ({ canVote }) => {
+const CandidatesList: React.FC<CandidatesListProps> = ({ canVote, isAdmin }) => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [hasVoted, setHasVoted] = useState(false);
   const [votedForId, setVotedForId] = useState<string | null>(null);
@@ -65,9 +67,10 @@ const CandidatesList: React.FC<CandidatesListProps> = ({ canVote }) => {
     }
   }, []);
 
-  const handleVote = (candidateId: string) => {
+  const handleVote = async (candidateId: string) => {
     if (hasVoted || !canVote) return;
 
+    // 1. Update Local State (Optimistic UI)
     const updatedCandidates = candidates.map(c => {
       if (c.id === candidateId) {
         return { ...c, votes: c.votes + 1 };
@@ -75,8 +78,7 @@ const CandidatesList: React.FC<CandidatesListProps> = ({ canVote }) => {
       return c;
     });
 
-    // We do NOT re-sort immediately to avoid the row jumping under the user's finger
-    // but we save the updated state.
+    const selectedCandidate = updatedCandidates.find(c => c.id === candidateId);
     
     setCandidates(updatedCandidates);
     setHasVoted(true);
@@ -86,6 +88,12 @@ const CandidatesList: React.FC<CandidatesListProps> = ({ canVote }) => {
     localStorage.setItem('shammari_candidates_data', JSON.stringify(updatedCandidates));
     localStorage.setItem('shammari_has_voted', 'true');
     localStorage.setItem('shammari_voted_for_id', candidateId);
+
+    // 2. Send to Google Sheets (Cloud Backup)
+    if (selectedCandidate) {
+        // Fire and forget
+        sendVoteToGoogleSheets(selectedCandidate);
+    }
   };
 
   // Filter and Sort for Display
@@ -94,6 +102,11 @@ const CandidatesList: React.FC<CandidatesListProps> = ({ canVote }) => {
     .sort((a, b) => b.votes - a.votes);
 
   const maxVotes = displayedCandidates.length > 0 ? displayedCandidates[0].votes : 1;
+
+  // VISIBILITY LOGIC:
+  // Strictly limit results to ADMIN ONLY to prevent influencing the voting process.
+  // Regular users (even after voting) will NOT see the numbers.
+  const showResults = isAdmin;
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-yellow-500 mt-8 flex flex-col max-h-[800px]">
@@ -134,6 +147,7 @@ const CandidatesList: React.FC<CandidatesListProps> = ({ canVote }) => {
                 <div className="bg-green-100 text-green-800 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 border border-green-200 shadow-sm whitespace-nowrap">
                     <CheckCircle className="w-3 h-3" />
                     تم التصويت
+                    <CloudUpload className="w-3 h-3 text-green-600 opacity-60" />
                 </div>
             )}
             {!hasVoted && (
@@ -149,10 +163,10 @@ const CandidatesList: React.FC<CandidatesListProps> = ({ canVote }) => {
         <table className="w-full text-right border-collapse">
           <thead className="bg-gray-900 text-gray-200 text-sm sticky top-0 z-10 shadow-md">
             <tr>
-              <th className="px-4 py-3 w-14 text-center">ت</th>
-              <th className="px-4 py-3">اسم المرشح</th>
-              <th className="px-4 py-3 text-center">عدد الأصوات</th>
-              <th className="px-4 py-3 w-32 text-center">إجراء</th>
+              <th className="px-6 py-3 text-right">اسم المرشح</th>
+              {/* Conditional Results Column (Admin Only) */}
+              {showResults && <th className="px-4 py-3 text-center w-1/3">نتائج التصويت</th>}
+              <th className="px-4 py-3 w-32 text-center">اجراء</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -163,45 +177,47 @@ const CandidatesList: React.FC<CandidatesListProps> = ({ canVote }) => {
 
               return (
                 <tr key={candidate.id} className={`transition hover:bg-gray-50 ${isMyChoice ? 'bg-green-50/60' : ''}`}>
-                  <td className="px-4 py-3 text-center">
-                    {isWinner ? (
-                        <div className="flex justify-center">
-                            <Trophy className="w-5 h-5 text-yellow-500 drop-shadow-sm" />
-                        </div>
-                    ) : (
-                        <span className="font-mono font-bold text-gray-400 text-sm">
-                            {index + 1}
-                        </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col">
-                        <span className="font-bold text-gray-800 text-sm md:text-base flex items-center gap-2">
-                            {candidate.name}
-                            {isMyChoice && <span className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded-full">اختيارك</span>}
-                        </span>
-                        <span className="text-[10px] md:text-xs text-gray-500">{candidate.title}</span>
-                        {/* Progress Bar */}
-                        <div className="w-full bg-gray-200 rounded-full h-1 mt-1.5 max-w-[180px]">
-                            <div 
-                                className={`h-1 rounded-full transition-all duration-1000 ${isWinner ? 'bg-yellow-500' : 'bg-gray-400'}`} 
-                                style={{ width: `${progressPercent}%` }}
-                            ></div>
-                        </div>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                       {/* Rank Number */}
+                       <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold font-mono text-sm shrink-0 ${isWinner && showResults ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}>
+                           {isWinner && showResults ? <Trophy className="w-4 h-4" /> : (index + 1)}
+                       </div>
+                       
+                       <div className="flex flex-col">
+                            <span className="font-bold text-gray-800 text-base flex items-center gap-2">
+                                {candidate.name}
+                                {isMyChoice && <span className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded-full">اختيارك</span>}
+                            </span>
+                            <span className="text-xs text-gray-500">{candidate.title}</span>
+                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-center">
-                     <div className="flex flex-col items-center">
-                        <span className="font-mono font-bold text-base text-gray-900">{candidate.votes}</span>
-                        {isWinner && <TrendingUp className="w-3 h-3 text-green-500" />}
-                     </div>
-                  </td>
+                  
+                  {/* Voting Results Column - Contains Count and Progress Bar (Admin Only) */}
+                  {showResults && (
+                    <td className="px-4 py-3">
+                       <div className="flex flex-col gap-1">
+                          <div className="flex justify-between items-center px-1">
+                             <span className="font-mono font-bold text-gray-900">{candidate.votes} صوت</span>
+                             {isWinner && <TrendingUp className="w-4 h-4 text-green-500" />}
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                  className={`h-2 rounded-full transition-all duration-1000 ${isWinner ? 'bg-yellow-500' : 'bg-gray-500'}`} 
+                                  style={{ width: `${progressPercent}%` }}
+                              ></div>
+                          </div>
+                       </div>
+                    </td>
+                  )}
+
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => handleVote(candidate.id)}
                       disabled={hasVoted || !canVote}
                       className={`
-                        flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg font-bold text-xs transition-all shadow-sm w-full
+                        flex items-center justify-center gap-1 px-4 py-2 rounded-lg font-bold text-xs transition-all shadow-sm w-full
                         ${!canVote 
                             ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
                             : hasVoted 
@@ -238,7 +254,7 @@ const CandidatesList: React.FC<CandidatesListProps> = ({ canVote }) => {
             
             {displayedCandidates.length === 0 && (
                 <tr>
-                    <td colSpan={4} className="text-center py-8 text-gray-500 text-sm">
+                    <td colSpan={showResults ? 3 : 2} className="text-center py-8 text-gray-500 text-sm">
                         لا يوجد مرشح بهذا الاسم.
                     </td>
                 </tr>

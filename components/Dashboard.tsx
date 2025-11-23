@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { Voter } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Users, MapPin, Activity, Unlock, Lock, FileShield } from 'lucide-react';
+import { Users, MapPin, Activity, Unlock, Lock } from 'lucide-react';
 import CandidatesList from './CandidatesList';
 
 interface DashboardProps {
@@ -279,7 +279,7 @@ const Dashboard: React.FC<DashboardProps> = ({ voters, onViewImage, canVote }) =
       </div>
       
       {/* Candidates Voting Section */}
-      <CandidatesList canVote={canVote} />
+      <CandidatesList canVote={canVote} isAdmin={isAdmin} />
 
       {/* NOTE: The Voter Registry Table has been moved to HiddenVoterRegistry.tsx and is hidden from view. */}
     </div>

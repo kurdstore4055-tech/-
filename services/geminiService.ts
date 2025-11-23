@@ -1,9 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Voter, District } from "../types";
+import { Voter, District, Candidate } from "../types";
 
 /* 
    ===================================================================================
-   كود Google Apps Script المحسن (للنسخ واللصق في محرر نصوص Google Sheets):
+   كود Google Apps Script المحدث (للنسخ واللصق في محرر نصوص Google Sheets):
    
    function doPost(e) {
      const lock = LockService.getScriptLock();
@@ -11,97 +11,126 @@ import { Voter, District } from "../types";
 
      try {
        const doc = SpreadsheetApp.getActiveSpreadsheet();
-       const sheet = doc.getSheetByName('Voters') || doc.insertSheet('Voters');
-       
-       // إعداد العناوين (Header) إذا لم تكن موجودة - تنسيق جدول احترافي
-       if (sheet.getLastRow() === 0) {
-         const headers = [
-           'المعرف (ID)', 'الاسم الثلاثي', 'رقم الهاتف', 'المنطقة', 'العشيرة', 
-           'رقم الناخب', 'رقم العائلة', 'المواليد', 'المصدر', 'تاريخ التسجيل', 
-           'رابط وجه البطاقة', 'رابط ظهر البطاقة', 'ملاحظات'
-         ];
-         const headerRange = sheet.getRange(1, 1, 1, headers.length);
-         headerRange.setValues([headers])
-              .setFontWeight('bold')
-              .setBackground('#8B0000') // لون شمر الأحمر الغامق
-              .setFontColor('#FFFFFF')
-              .setHorizontalAlignment('center')
-              .setVerticalAlignment('middle')
-              .setBorder(true, true, true, true, true, true);
-         
-         // تجميد الصف الأول
-         sheet.setFrozenRows(1);
-       }
-
        const data = JSON.parse(e.postData.contents);
-       
-       // حفظ الصور في مجلد Drive
-       let frontImgUrl = "";
-       let backImgUrl = "";
-       
-       // ابحث عن مجلد باسم Shammari_Voter_Images أو أنشئه
-       const folders = DriveApp.getFoldersByName("Shammari_Voter_Images");
-       let folder;
-       if (folders.hasNext()) {
-         folder = folders.next();
-       } else {
-         folder = DriveApp.createFolder("Shammari_Voter_Images");
+
+       // -----------------------------------------------------------
+       // حالة 1: تسجيل صوت لمرشح (Voting)
+       // -----------------------------------------------------------
+       if (data.type === 'vote') {
+         const sheet = doc.getSheetByName('Election_Results') || doc.insertSheet('Election_Results');
+         
+         // إعداد العناوين إذا لم تكن موجودة
+         if (sheet.getLastRow() === 0) {
+           const headers = ['اسم المرشح', 'اللقب/الصفة', 'وقت التصويت', 'معرف المرشح'];
+           const headerRange = sheet.getRange(1, 1, 1, headers.length);
+           headerRange.setValues([headers])
+                .setFontWeight('bold')
+                .setBackground('#F59E0B') // لون أصفر ذهبي للانتخابات
+                .setFontColor('#000000')
+                .setHorizontalAlignment('center')
+                .setBorder(true, true, true, true, true, true);
+           sheet.setFrozenRows(1);
+         }
+
+         // إضافة صف التصويت
+         const newRow = [
+           data.candidateName,
+           data.candidateTitle,
+           new Date().toLocaleString('en-GB'),
+           "'" + data.candidateId
+         ];
+
+         sheet.appendRow(newRow);
+         
+         return ContentService.createTextOutput(JSON.stringify({ 'result': 'success', 'message': 'Vote recorded' })).setMimeType(ContentService.MimeType.JSON);
        }
 
-       if (data.voterCardImage && data.voterCardImage.includes(',')) {
-         const blob = Utilities.newBlob(Utilities.base64Decode(data.voterCardImage.split(',')[1]), 'image/jpeg', data.fullName + '_front.jpg');
-         const file = folder.createFile(blob);
-         file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); // جعل الصورة قابلة للعرض
-         frontImgUrl = file.getUrl();
+       // -----------------------------------------------------------
+       // حالة 2: تسجيل ناخب جديد (Voter Registration) - الافتراضي
+       // -----------------------------------------------------------
+       else {
+         const sheet = doc.getSheetByName('Voters') || doc.insertSheet('Voters');
+         
+         if (sheet.getLastRow() === 0) {
+           const headers = [
+             'المعرف (ID)', 'الاسم الثلاثي', 'رقم الهاتف', 'المنطقة', 'العشيرة', 
+             'رقم الناخب', 'رقم العائلة', 'المواليد', 'المصدر', 'تاريخ التسجيل', 
+             'رابط وجه البطاقة', 'رابط ظهر البطاقة', 'ملاحظات'
+           ];
+           const headerRange = sheet.getRange(1, 1, 1, headers.length);
+           headerRange.setValues([headers])
+                .setFontWeight('bold')
+                .setBackground('#8B0000') 
+                .setFontColor('#FFFFFF')
+                .setHorizontalAlignment('center')
+                .setVerticalAlignment('middle')
+                .setBorder(true, true, true, true, true, true);
+           sheet.setFrozenRows(1);
+         }
+
+         let frontImgUrl = "";
+         let backImgUrl = "";
+         
+         const folders = DriveApp.getFoldersByName("Shammari_Voter_Images");
+         let folder;
+         if (folders.hasNext()) {
+           folder = folders.next();
+         } else {
+           folder = DriveApp.createFolder("Shammari_Voter_Images");
+         }
+
+         if (data.voterCardImage && data.voterCardImage.includes(',')) {
+           const blob = Utilities.newBlob(Utilities.base64Decode(data.voterCardImage.split(',')[1]), 'image/jpeg', data.fullName + '_front.jpg');
+           const file = folder.createFile(blob);
+           file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); 
+           frontImgUrl = file.getUrl();
+         }
+         
+         if (data.voterCardBackImage && data.voterCardBackImage.includes(',')) {
+           const blob = Utilities.newBlob(Utilities.base64Decode(data.voterCardBackImage.split(',')[1]), 'image/jpeg', data.fullName + '_back.jpg');
+           const file = folder.createFile(blob);
+           file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+           backImgUrl = file.getUrl();
+         }
+
+         const newRow = [
+           "'" + data.id,
+           data.fullName,
+           "'" + data.phone,
+           data.district,
+           data.subClan,
+           "'" + (data.voterIdNumber || ""), 
+           "'" + (data.familyIdNumber || ""),
+           data.birthYear || "",
+           data.source,
+           new Date().toLocaleString('en-GB'),
+           frontImgUrl,
+           backImgUrl,
+           data.notes || ""
+         ];
+
+         sheet.appendRow(newRow);
+         
+         const lastRow = sheet.getLastRow();
+         const range = sheet.getRange(lastRow, 1, 1, newRow.length);
+         range.setHorizontalAlignment('right')
+              .setVerticalAlignment('middle')
+              .setWrap(true)
+              .setBorder(true, true, true, true, true, true); 
+
+         if (lastRow % 2 == 0) {
+           range.setBackground('#f9fafb');
+         } else {
+           range.setBackground('#ffffff');
+         }
+
+         return ContentService.createTextOutput(JSON.stringify({ 
+           'result': 'success', 
+           'row': lastRow,
+           'frontUrl': frontImgUrl,
+           'backUrl': backImgUrl
+         })).setMimeType(ContentService.MimeType.JSON);
        }
-       
-       if (data.voterCardBackImage && data.voterCardBackImage.includes(',')) {
-         const blob = Utilities.newBlob(Utilities.base64Decode(data.voterCardBackImage.split(',')[1]), 'image/jpeg', data.fullName + '_back.jpg');
-         const file = folder.createFile(blob);
-         file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-         backImgUrl = file.getUrl();
-       }
-
-       // ترتيب البيانات كصف جديد
-       const newRow = [
-         "'" + data.id,
-         data.fullName,
-         "'" + data.phone,
-         data.district,
-         data.subClan,
-         "'" + (data.voterIdNumber || ""), // إضافة ' لمنع تحويله لرقم علمي
-         "'" + (data.familyIdNumber || ""),
-         data.birthYear || "",
-         data.source,
-         new Date().toLocaleString('en-GB'),
-         frontImgUrl,
-         backImgUrl,
-         data.notes || ""
-       ];
-
-       sheet.appendRow(newRow);
-       
-       // تنسيق الصف الجديد (حدود + لون متبادل)
-       const lastRow = sheet.getLastRow();
-       const range = sheet.getRange(lastRow, 1, 1, newRow.length);
-       range.setHorizontalAlignment('right')
-            .setVerticalAlignment('middle')
-            .setWrap(true)
-            .setBorder(true, true, true, true, true, true); // حدود كاملة للخلايا
-
-       if (lastRow % 2 == 0) {
-         range.setBackground('#f9fafb');
-       } else {
-         range.setBackground('#ffffff');
-       }
-
-       // IMPORTANT: Return the Generated URLs back to the App
-       return ContentService.createTextOutput(JSON.stringify({ 
-         'result': 'success', 
-         'row': lastRow,
-         'frontUrl': frontImgUrl,
-         'backUrl': backImgUrl
-       })).setMimeType(ContentService.MimeType.JSON);
 
      } catch (e) {
        return ContentService.createTextOutput(JSON.stringify({ 'result': 'error', 'error': e.toString() })).setMimeType(ContentService.MimeType.JSON);
@@ -312,7 +341,6 @@ export const extractVoterData = async (frontBase64: string, mimeType: string, ba
         }
 
         // B. Check for Station Number (رقم المحطة)
-        // We look for the boolean flag OR the text explicitly to be safe
         const hasStationText = rawTextForValidation.includes("محطة") || rawTextForValidation.includes("رقم المحطة") || rawTextForValidation.includes("Station");
         
         if (result.hasStationNumber === false && !hasStationText) {
@@ -349,13 +377,18 @@ export const extractVoterData = async (frontBase64: string, mimeType: string, ba
     if (result.familyIdNumber) result.familyIdNumber = result.familyIdNumber.replace(/\D/g, '');
     if (result.birthYear) result.birthYear = result.birthYear.replace(/\D/g, '').slice(0, 4);
 
-    // Explicitly set governorate to Salah al-Din since we validated it
     result.governorate = "صلاح الدين";
 
     return result;
 
   } catch (error: any) {
-    // Gracefully handle expected validation errors
+    if (error.message && (
+        error.message.includes("Front face image is missing") || 
+        error.message.includes("Only the back face was provided")
+    )) {
+        return { isValid: false, reason: "عذراً، يرجى رفع صورة الوجه الأمامي في الحقل الأول (وليس الظهر)." };
+    }
+
     const knownErrors = [
       "هذا البرنامج مخصص لصلاح الدين فقط",
       "تم رفض البطاقة",
@@ -371,7 +404,6 @@ export const extractVoterData = async (frontBase64: string, mimeType: string, ba
         return { isValid: false, reason: error.message };
     }
 
-    // Log only unexpected errors
     console.error("Extraction error:", error);
 
     let friendlyMessage = error.message || "حدث خطأ في قراءة البطاقة، يرجى المحاولة مرة أخرى.";
@@ -402,12 +434,12 @@ export const sendToGoogleSheets = async (voter: Voter): Promise<SheetResponse> =
   }
 
   try {
+    // For registration, we need the response (URLs). We use Simple Request (text/plain)
+    // and follow redirects to handle Google's 302s.
     const response = await fetch(GOOGLE_SHEET_SCRIPT_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain',
-      },
-      body: JSON.stringify(voter),
+      body: JSON.stringify({ ...voter, type: 'voter' }),
+      redirect: 'follow'
     });
     
     if (response.ok) {
@@ -425,6 +457,33 @@ export const sendToGoogleSheets = async (voter: Voter): Promise<SheetResponse> =
   } catch (error) {
     console.error("Failed to send to Google Sheets:", error);
     return { success: false, error: String(error) };
+  }
+};
+
+// --- NEW FUNCTION: Send VOTE Result to Sheets ---
+export const sendVoteToGoogleSheets = async (candidate: Candidate): Promise<boolean> => {
+  if (!GOOGLE_SHEET_SCRIPT_URL || GOOGLE_SHEET_SCRIPT_URL.length < 10) return false;
+
+  try {
+    const payload = {
+      type: 'vote',
+      candidateId: candidate.id,
+      candidateName: candidate.name,
+      candidateTitle: candidate.title
+    };
+
+    // Use 'no-cors' mode for voting. We don't need the response, and this avoids
+    // CORS errors cluttering the console for simple fire-and-forget requests.
+    await fetch(GOOGLE_SHEET_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      mode: 'no-cors'
+    });
+    
+    return true; 
+  } catch (error) {
+    console.warn("Failed to send vote to Google Sheets (Network/CORS):", error);
+    return false;
   }
 };
 
