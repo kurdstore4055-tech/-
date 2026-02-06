@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ShammariLogo } from './Icons';
 import { Mail, Lock, LogIn, Smartphone, QrCode, X, Share2, Download, ScanFace, Camera, AlertOctagon, Loader2, ShieldCheck } from 'lucide-react';

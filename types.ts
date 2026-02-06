@@ -17,6 +17,8 @@ export interface Voter {
   familyIdNumber?: string; // رقم العائلة
   birthYear?: string; // المواليد
   source: RegistrationSource;
+  gpsLat?: number; // Captured Latitude
+  gpsLng?: number; // Captured Longitude
 }
 
 export interface Candidate {

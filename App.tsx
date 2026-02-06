@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { ShammariLogo } from './components/Icons';
 import RegistrationForm from './components/RegistrationForm';
 import Dashboard from './components/Dashboard';
 import Onboarding from './components/Onboarding';
 import Login from './components/Login';
+import ChatBot from './components/ChatBot';
 import { District, Voter } from './types';
 import { analyzeVoterDemographics } from './services/geminiService';
 import { LayoutDashboard, PlusCircle, Sparkles, Database, Eye, X, Home, BarChart2, LogOut, QrCode, Smartphone, Share2 } from 'lucide-react';
@@ -287,6 +289,9 @@ const App: React.FC = () => {
         </div>
       </main>
 
+      {/* Floating Chat Bot */}
+      <ChatBot voters={voters} />
+
       {/* Mobile Bottom Navigation Bar */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 pb-safe z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
         <div className="flex items-center justify-around h-16">
@@ -299,8 +304,6 @@ const App: React.FC = () => {
             </div>
             <span className="text-[10px] font-bold">الرئيسية</span>
           </button>
-          
-          {/* Floating Action Button style for center (optional) - Keeping simple for now */}
           
           <button 
             onClick={() => setActiveTab('dashboard')}

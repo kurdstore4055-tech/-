@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { District, Voter, RegistrationSource } from '../types';
 import { UserPlus, Save, CheckCircle, Upload, AlertTriangle, Loader2, X, Smartphone, Globe, UserCog, ScanLine, MapPin, RefreshCw, FileText, CreditCard, Eye, AlertOctagon, Camera, Lock, Sparkles, Feather } from 'lucide-react';
@@ -235,7 +236,9 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({ onAddVoter }) => {
       ...formData,
       voterCardImage,
       voterCardBackImage: voterCardBackImage || undefined,
-      registeredAt: new Date().toISOString()
+      registeredAt: new Date().toISOString(),
+      gpsLat: locationCoords?.lat,
+      gpsLng: locationCoords?.lng
     };
 
     setGoogleSheetStatus('sending');

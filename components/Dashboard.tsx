@@ -66,6 +66,10 @@ const Dashboard: React.FC<DashboardProps> = ({ voters, onViewImage, canVote }) =
         ? `<a href="${v.backImageUrl}" target="_blank" style="color:#1d4ed8; font-weight:bold; text-decoration:underline;">عرض الظهر (Drive)</a>`
         : (v.voterCardBackImage ? `<img src="${v.voterCardBackImage}" width="100" height="60" style="display:block; margin:auto; max-height:60px; width:auto;" />` : '<span style="color:#9ca3af;">لا يوجد</span>');
 
+      const gpsLinkContent = (v.gpsLat && v.gpsLng) 
+        ? `<a href="https://www.google.com/maps?q=${v.gpsLat},${v.gpsLng}" target="_blank" style="color:#10b981; font-weight:bold; text-decoration:underline;">عرض الموقع (GPS)</a>`
+        : '<span style="color:#9ca3af;">غير متوفر</span>';
+
       return `
       <tr>
         <td>${v.id}</td>
@@ -79,6 +83,7 @@ const Dashboard: React.FC<DashboardProps> = ({ voters, onViewImage, canVote }) =
         <td>${new Date(v.registeredAt).toLocaleDateString('ar-IQ')}</td>
         <td style="text-align:center; vertical-align:middle;">${frontCellContent}</td>
         <td style="text-align:center; vertical-align:middle;">${backCellContent}</td>
+        <td style="text-align:center; vertical-align:middle;">${gpsLinkContent}</td>
         <td>${v.notes || ''}</td>
       </tr>
     `}).join('');
@@ -126,6 +131,7 @@ const Dashboard: React.FC<DashboardProps> = ({ voters, onViewImage, canVote }) =
               <th>تاريخ التسجيل</th>
               <th>رابط صورة الوجه</th>
               <th>رابط صورة الظهر</th>
+              <th>موقع التصويت (GPS)</th>
               <th>ملاحظات</th>
             </tr>
           </thead>

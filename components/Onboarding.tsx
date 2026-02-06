@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ShammariLogo } from './Icons';
 import { ScanFace, ShieldCheck, BarChart3, ArrowLeft, Check, X } from 'lucide-react';
